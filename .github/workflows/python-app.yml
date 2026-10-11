@@ -1,0 +1,58 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: New Release
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - run: python ./prepare_releases.py
+    - uses: actions/upload-artifact@v4
+      with:
+        path: |
+          *.zip
+          *.sdkmod
+        name: releases
+          
+  release:
+    runs-on: ubuntu-latest
+
+    needs:
+      - build
+
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Download releases
+      uses: actions/download-artifact@v4
+      with:
+        name: releases
+
+    - name: Upload releases
+      uses: andelf/nightly-release@main
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: nightly
+        files: |
+          *.sdkmod
+          *.zip
+        name: Automated Releases
+        prerelease: false
+        body: >
+          This release is automatically built from the latest (passing) commits on master.
