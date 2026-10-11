@@ -1,0 +1,14 @@
+[project]
+name = "fov"
+version = "1"
+authors = [{ name = "ZetaDaemon" }]
+description = """Provides an FOV slider."""
+
+[tool.sdkmod]
+name = "FOV"
+version = "1"
+license = { name = "GPL3", url = "https://choosealicense.com/licenses/gpl-3.0/" }
+download = ""
+
+[tool.sdkmod_release_script]
+files = ["*.md", "*.py"]
