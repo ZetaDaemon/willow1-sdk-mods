@@ -1,0 +1,14 @@
+[project]
+name = "text_mod_manager"
+version = "1"
+authors = [{ name = "ZetaDaemon" }]
+description = """Manages bl1 text mods."""
+
+[tool.sdkmod]
+name = "Text Mod Manager"
+version = "1"
+license = { name = "GPL3", url = "https://choosealicense.com/licenses/gpl-3.0/" }
+download = ""
+
+[tool.sdkmod_release_script]
+files = ["*.md", "*.py"]

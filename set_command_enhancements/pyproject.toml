@@ -1,0 +1,15 @@
+[project]
+name = "set_command_enhancements"
+version = "1"
+authors = [{ name = "ZetaDaemon" }]
+description = """\
+Adds a custom set_special command to perform custom set commands."""
+
+[tool.sdkmod]
+name = "Set Command Enhancements"
+version = "1"
+license = { name = "GPL3", url = "https://choosealicense.com/licenses/gpl-3.0/" }
+download = "https://github.com/ZetaDaemon/willow2-sdk-mods/releases/download/nightly/set_command_enhancements.sdkmod"
+
+[tool.sdkmod_release_script]
+files = ["*.md", "*.py"]
