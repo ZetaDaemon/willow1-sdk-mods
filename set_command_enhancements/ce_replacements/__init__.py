@@ -1,3 +1,3 @@
-from . import clone, keep_alive, load_package, unlock_package
+from . import clone, keep_alive, load_package, pyb, unlock_package
 
-__all__ = ["clone", "keep_alive", "load_package", "unlock_package"]
+__all__ = ["clone", "keep_alive", "load_package", "pyb", "unlock_package"]

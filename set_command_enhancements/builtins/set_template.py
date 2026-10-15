@@ -3,12 +3,13 @@ from dataclasses import dataclass
 from typing import Protocol
 
 import unrealsdk
-
 from mods_base import command
+
 from set_command_enhancements.command_utils import (
     CommandFlags,
     CommandFlagsAction,
     autoregister,
+    autoregister_json,
     set_command_splitter,
 )
 
@@ -61,20 +62,23 @@ def set_template(args: SetTemplateArgs) -> None:
 
 set_template.add_argument("object")
 set_template.add_argument("template")
-set_template.add_argument("-l", "--level", nargs="?", default=None)
+set_template.add_argument("-l", "--level")
 set_template.add_argument(
-    "-s", "--silent", action=CommandFlagsAction, flag_value=CommandFlags.Silent
+    "-s", "--silent", action=CommandFlagsAction, dest="flags", flag_value=CommandFlags.SLIENT
+)
+set_template.add_argument(
+    "-c", "--class", action=CommandFlagsAction, dest="flags", flag_value=CommandFlags.CLASS
 )
 append_group = set_template.parser.add_mutually_exclusive_group()
 append_group.add_argument(
-    "-a", "--append", action=CommandFlagsAction, flag_value=CommandFlags.Append
+    "-a", "--append", action=CommandFlagsAction, dest="flags", flag_value=CommandFlags.APPEND
 )
 append_group.add_argument(
-    "-e", "--extend", action=CommandFlagsAction, flag_value=CommandFlags.Extend
+    "-e", "--extend", action=CommandFlagsAction, dest="flags", flag_value=CommandFlags.EXTEND
 )
 
 
-@autoregister
+@autoregister_json
 @command(splitter=set_command_splitter)  # pyright: ignore[reportArgumentType]
 def set_template_create(args: SetTemplateCreateArgs) -> None:
     TEMPLATES[args.template] = (args.property_path, args.value)

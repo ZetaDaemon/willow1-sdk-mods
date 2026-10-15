@@ -1,21 +1,22 @@
 import contextlib
 import ctypes
+import sys
 from collections.abc import Iterator
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
 import unrealsdk
-from unrealsdk.hooks import Block
-from unrealsdk.unreal import BoundFunction, UObject, WrappedStruct
-
 from mods_base import SETTINGS_DIR, CoopSupport, hook, register_mod
 from ui_utils import TrainingBox
+from unrealsdk.hooks import Block
+from unrealsdk.unreal import BoundFunction, UObject, WrappedStruct
 
 from .text_mod import FileTextMod, FolderTextMod, TextMod
 
 TEXT_MOD_SETTINGS_DIR = SETTINGS_DIR / "text_mod_settings"
-TEXT_MODS_DIR = Path(__file__).parent.parent.parent / "text_mods"
+BORDERLANDS_DIR = Path(sys.executable).parent.parent
+TEXT_MODS_DIR = BORDERLANDS_DIR / "text_mods"
 ALL_TEXT_MODS: list[TextMod] = []
 
 LOADING_MSG = "Running all text mods, this will take a moment."
@@ -25,6 +26,10 @@ notify_loading_msg = TrainingBox(
     message=LOADING_MSG,
     on_input=lambda *_: Block,  # pyright: ignore[reportUnknownArgumentType, reportUnknownLambdaType]
 )
+
+
+def text_mod_on_enable() -> None:
+    frontend_intercept.enable()
 
 
 def find_mods() -> None:
@@ -69,13 +74,14 @@ def new_text_mod(path: Path) -> TextMod | None:
         coop_support=coop_support,
         settings_file=settings_file,
         mod_path=path,
+        on_enable=text_mod_on_enable,
     )
 
 
 def exec_all_mods() -> None:
     for mod in ALL_TEXT_MODS:
         if mod.is_enabled:
-            mod.exec_mod()
+            list(mod.exec_mod())
 
 
 exec_iterator: Iterator[None]
@@ -116,6 +122,8 @@ def exec_before_play() -> Iterator[None]:
     yield
 
     for mod in ALL_TEXT_MODS:
+        if not mod.is_enabled:
+            continue
         if gfx_object is not None:
             gfx_object.SetVariableString(TRAINING_BOX_TEXT_VAR, f"{LOADING_MSG}\n\n{mod.name}")
         yield

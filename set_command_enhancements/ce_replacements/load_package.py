@@ -4,20 +4,20 @@ from pathlib import Path
 from typing import Protocol
 
 import unrealsdk
+from mods_base import command
 from unrealsdk import logging
 
-from mods_base import command
 from set_command_enhancements.command_utils import autoregister
 
-cookedpc_dir = Path(sys.executable).parent.parent / "WillowGame" / "CookedPC"
+COOKEDPC_DIR = Path(sys.executable).parent.parent / "WillowGame" / "CookedPC"
 all_upks: list[Path] = []
 
-for root, _dirs, files in cookedpc_dir.walk():
+for root, _dirs, files in COOKEDPC_DIR.walk():
     for file in files:
         filepath = root / file
         if filepath.suffix != ".upk":
             continue
-        all_upks.append(filepath.relative_to(cookedpc_dir).with_suffix(""))
+        all_upks.append(filepath.relative_to(COOKEDPC_DIR).with_suffix(""))
 
 
 class LoadPackageArgs(Protocol):

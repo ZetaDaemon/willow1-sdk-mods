@@ -10,6 +10,7 @@ from importlib.util import find_spec
 from typing import TYPE_CHECKING, Any, TypeGuard, cast, overload, override
 
 import unrealsdk
+from mods_base import AbstractCommand
 from unrealsdk import unreal
 from unrealsdk.unreal import (
     UClass,
@@ -21,8 +22,6 @@ from unrealsdk.unreal import (
     ZArrayProperty,
     ZProperty,
 )
-
-from mods_base import AbstractCommand
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -36,21 +35,43 @@ if TYPE_CHECKING:
 # needed so commnads can still be autoregistered
 if find_spec("command_extensions"):
     from command_extensions import (  # pyright: ignore[reportMissingImports]
-        autoregister as autoregister,  # pyright: ignore[reportUnknownVariableType]  # noqa: PLC0414
+        autoregister as ce_autoregister,  # pyright: ignore[reportUnknownVariableType]
     )
 else:
+    ce_autoregister = None
 
-    def autoregister[C: AbstractCommand](obj: C) -> C:
-        return obj
+if find_spec("text_mod_manager"):
+    from text_mod_manager import autoregister as tmm_autoregister
+    from text_mod_manager import autoregister_json as tmm_autoregister_json
+else:
+    tmm_autoregister = None
+    tmm_autoregister_json = None
+
+
+def autoregister[C: AbstractCommand](obj: C) -> C:
+    if ce_autoregister:
+        ce_autoregister(obj)
+    if tmm_autoregister:
+        tmm_autoregister(obj)
+    return obj
+
+
+def autoregister_json[C: AbstractCommand](obj: C) -> C:
+    if ce_autoregister:
+        ce_autoregister(obj)
+    if tmm_autoregister_json:
+        tmm_autoregister_json(obj)
+    return obj
 
 
 class CommandFlags(IntFlag):
     """Int flags for command flag options."""
 
     NONE = 0
-    Append = auto()
-    Extend = auto()
-    Silent = auto()
+    APPEND = auto()
+    EXTEND = auto()
+    SLIENT = auto()
+    CLASS = auto()
 
 
 class CommandFlagsAction(Action):
@@ -64,9 +85,9 @@ class CommandFlagsAction(Action):
 
     def __init__(  # noqa: D107
         self,
-        flag_value: CommandFlags,
         option_strings: Sequence[str],
-        dest: str = "flags",
+        dest: str,
+        flag_value: CommandFlags,
         help: str | None = None,  # noqa: A002
     ) -> None:
         super().__init__(
@@ -268,13 +289,17 @@ def split_property_path(property_path: str) -> list[str | int]:
     return [int(x) if x.isdigit() else x for x in path]
 
 
-def set_array_index(destination: WrappedArray, target: int, value: JSONValue) -> None:
-    inner_type = utype_to_type(destination._type)
-    if inner_type is None:
-        msg = "Found None inner type of Array"
-        raise TypeError(msg)
-    uvalue = convert_value(value, inner_type)
-    destination[target] = uvalue
+def set_array_index(
+    destination: UObject | WrappedStruct,
+    target: str,
+    index: int,
+    inner_type: UType,
+    value: JSONValue,
+) -> None:
+    array = getattr(destination, target)
+    array = list(array)
+    array[index] = convert_value(value, inner_type)
+    setattr(destination, target, array)
 
 
 def append_to_property(
@@ -294,9 +319,9 @@ def append_to_property(
         raise TypeError(msg)
 
     current = destination._get_field(target_prop)
-    if CommandFlags.Append in flags:
+    if CommandFlags.APPEND in flags:
         current.append(convert_value(value, t))
-    elif CommandFlags.Extend in flags:
+    elif CommandFlags.EXTEND in flags:
         # Extend seems to not properly add the new items, it only increases length
         # So for now just append each item
         for item in convert_value(value, ListType(t)):
@@ -304,29 +329,32 @@ def append_to_property(
 
 
 def set_property(
-    destination: UObject | WrappedStruct | WrappedArray,
-    target: str | int,
+    destination: UObject | WrappedStruct,
+    target: str,
     value_str: str,
     flags: CommandFlags,
+    index: int | None = None,
 ) -> None:
-    value = cast("JSONValue", json.loads(value_str.replace("\\", "\\\\")))
-    if isinstance(destination, WrappedArray):
-        if not isinstance(target, int):
-            unrealsdk.logging.error(f"{target} is not an index")
-            return
-        set_array_index(destination, target, value)
-        return
-
-    if isinstance(target, int):
-        unrealsdk.logging.error("Cannot get an index from a non array property")
-        return
+    value = cast("JSONValue", json.loads(value_str))
 
     if isinstance(destination, UObject):
         target_prop = destination.Class._find_prop(target)
     else:
         target_prop = destination._type._find_prop(target)
 
-    if flags & (CommandFlags.Append | CommandFlags.Extend):
+    if isinstance(target_prop, ZArrayProperty):
+        inner_type = utype_to_type(target_prop.Inner)
+    elif target_prop.ArrayDim > 1:
+        inner_type = cast("UListType", utype_to_type(target_prop))
+        inner_type = inner_type.inner
+
+    else:
+        inner_type = None
+    if index is not None and inner_type is not None:
+        set_array_index(destination, target, index, inner_type, value)
+        return
+
+    if flags & (CommandFlags.APPEND | CommandFlags.EXTEND):
         append_to_property(destination, target_prop, value, flags)
         return
 
@@ -338,24 +366,45 @@ def set_property(
     destination._set_field(target_prop, value)
 
 
-def walk_to_property(
-    destination: UObject | WrappedStruct | WrappedArray,
+def walk_to_property(  # noqa: PLR0911
+    destination: UObject
+    | WrappedStruct
+    | WrappedArray
+    | tuple[UObject | WrappedStruct | WrappedArray],
     path: list[str | int],
     value_str: str,
     flags: CommandFlags,
 ) -> None:
     """Walk the path to find the target property."""
     target = path.pop(0)
+
     if len(path) == 0:
+        if isinstance(destination, (WrappedArray, tuple)):
+            unrealsdk.logging.error("Reached array destination without target index.")
+            return
+        if isinstance(target, int):
+            target = str(target)
         set_property(destination, target, value_str, flags)
         return
-    if isinstance(destination, WrappedArray):
+
+    if isinstance(destination, (WrappedArray, tuple)):
         if not isinstance(target, int):
             unrealsdk.logging.error(f"{target} is not an integer")
             return
         walk_to_property(destination[target], path, value_str, flags)
         return
+
     if not isinstance(target, str):
         unrealsdk.logging.error("Cannot index a struct or object.")
         return
-    walk_to_property(getattr(destination, target), path, value_str, flags)
+
+    next_destination = getattr(destination, target)
+    if isinstance(next_destination, (WrappedArray, tuple)) and len(path) == 1:
+        next_target = path.pop(0)
+        if not isinstance(next_target, int):
+            unrealsdk.logging.error(f"{next_target} is not an integer")
+            return
+        set_property(destination, target, value_str, flags, next_target)
+        return
+
+    walk_to_property(next_destination, path, value_str, flags)  # pyright: ignore[reportUnknownArgumentType]
