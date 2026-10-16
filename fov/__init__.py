@@ -6,63 +6,46 @@ from unrealsdk.hooks import Block, Type
 from unrealsdk.unreal import UObject, notify_changes
 
 
-@SliderOption("FOV", 70, 10, 130).set_on_change()
-def fov_slider(_: SliderOption, new_fov: float) -> None:
-    set_player_fov(new_fov)
+@SliderOption("FOV", 70, 10, 130, 10).set_on_change()
+def fov(_: SliderOption, new_value: float) -> None:
+    pc = get_pc()
+    set_default_fov(pc, new_value)
+    pc.FixFOV()
 
 
-def set_player_fov(f: float, pc: UObject | None = None) -> None:
-    if pc is None:
-        pc = get_pc()
-    if (camera := pc.PlayerCamera) is not None:
-        camera.SetFOV(f)
-    with notify_changes():
-        pc.FOVAngle = f
-        pc.DefaultFOV = f
-        pc.DesiredFOVBaseValue = f
-        pc.DesiredFOV = f
-        default = pc.Class.ClassDefaultObject
-        default.FOVAngle = f
-        default.DefaultFOV = f
-        default.DesiredFOVBaseValue = f
-        default.DesiredFOV = f
+vehicle_fov = SliderOption("Vehicle FOV", 80, 10, 170, 10)
+afterburner_fov = SliderOption("Afterburner FOV", 110, 10, 170, 10)
 
 
-@hook("WillowGame.WillowPlayerController:ApplyCharacterClassDefaults", Type.POST)
+def set_default_fov(pc: UObject, value: float) -> None:
+    pc.DefaultFOV = value
+    pc.PlayerClass.FOV = value
+    pc.Class.ClassDefaultObject.DefaultFOV = value
+
+
+@hook("WillowGame.WillowPlayerController:ApplyCharacterClassDefaults")
 def apply_defaults(pc: UObject, *_: Any) -> None:
-    set_player_fov(fov_slider.value, pc)
+    set_default_fov(pc, fov.value)
 
 
-@hook("WillowGame.WillowPlayerController:OnPlayerClassChange", Type.POST)
+@hook("WillowGame.WillowPlayerController:OnPlayerClassChange")
 def class_changed(pc: UObject, *_: Any) -> None:
-    set_player_fov(fov_slider.value, pc)
+    set_default_fov(pc, fov.value)
 
 
 @hook("Engine.PlayerController:FixFOV")
 def fix_fov(pc: UObject, *_: Any) -> type[Block]:
-    set_player_fov(fov_slider.value, pc)
+    with notify_changes():
+        pc.FOVAngle = pc.DefaultFOV
+        pc.DesiredFOVBaseValue = pc.DefaultFOV
+        pc.DesiredFOV = pc.DefaultFOV
     return Block
 
 
-@hook("Engine.PlayerController:ResetFOV")
-def reset_fov(pc: UObject, *_: Any) -> type[Block]:
-    set_player_fov(fov_slider.value, pc)
-    return Block
+@hook("WillowGame.WillowVehicle:PostBeginPlay", Type.POST)
+def driver_enter(obj: UObject, *_: Any) -> None:
+    obj.DefaultFOV = vehicle_fov.value
+    obj.AfterburnerMaxFOV = afterburner_fov.value
 
 
-@hook("WillowGame.WillowVehicle:DriverLeave", Type.POST)
-def driver_leave(*_: Any) -> None:
-    set_player_fov(fov_slider.value)
-
-
-@hook("WillowGame.WillowVehicle:PassengerLeave", Type.POST)
-def passenger(*_: Any) -> None:
-    set_player_fov(fov_slider.value)
-
-
-@hook("WillowGame.WillowWeaponPawn:DriverLeave", Type.POST)
-def weapon_driver_leave(*_: Any) -> None:
-    set_player_fov(fov_slider.value)
-
-
-build_mod()
+build_mod(options=(fov, vehicle_fov, afterburner_fov))

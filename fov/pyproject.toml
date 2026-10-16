@@ -2,13 +2,15 @@
 name = "fov"
 version = "1"
 authors = [{ name = "ZetaDaemon" }]
-description = """Provides an FOV slider."""
+description = """\
+Provides an FOV slider. Regular FOV is limited to 130, so that sprinting wont break it. \
+Vehicle and afterburner FOV can go up to 170 as over 180 results in broken visuals."""
 
 [tool.sdkmod]
 name = "FOV"
 version = "1"
 license = { name = "GPL3", url = "https://choosealicense.com/licenses/gpl-3.0/" }
-download = ""
+download = "https://github.com/ZetaDaemon/willow1-sdk-mods/releases/download/nightly/fov.sdkmod"
 
 [tool.sdkmod_release_script]
 files = ["*.md", "*.py"]

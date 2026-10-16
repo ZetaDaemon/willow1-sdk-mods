@@ -8,7 +8,7 @@ description = """Remember the selected playthrough option instead of asking ever
 name = "Remember Playthrough"
 version = "1"
 license = { name = "GPL3", url = "https://choosealicense.com/licenses/gpl-3.0/" }
-download = ""
+download = "https://github.com/ZetaDaemon/willow1-sdk-mods/releases/download/nightly/remember_playthrough.sdkmod"
 
 [tool.sdkmod_release_script]
 files = ["*.md", "*.py"]
