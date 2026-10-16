@@ -1,0 +1,14 @@
+[project]
+name = "remember_playthrough"
+version = "1"
+authors = [{ name = "ZetaDaemon" }]
+description = """Remember the selected playthrough option instead of asking every time."""
+
+[tool.sdkmod]
+name = "Remember Playthrough"
+version = "1"
+license = { name = "GPL3", url = "https://choosealicense.com/licenses/gpl-3.0/" }
+download = ""
+
+[tool.sdkmod_release_script]
+files = ["*.md", "*.py"]
